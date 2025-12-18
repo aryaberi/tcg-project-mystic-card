@@ -91,6 +91,7 @@ export const generateDeck = (count = 20) => {
       bonusAtt: 0, defense: 0
     };
   });
+  
 
   const deck = [...monsters, ...magics, ...bosses].sort(() => Math.random() - 0.5);
   return deck;
