@@ -39,13 +39,7 @@ const CardPreview = ({ card }) => {
         </div>
 
         <div className="text-8xl mb-4 drop-shadow-lg">
-          {card.type === "MAGIC"
-            ? card.image
-            : card.element === "Fire"
-            ? "🔥"
-            : card.element === "Water"
-            ? "💧"
-            : "🌿"}
+          {card.image}
         </div>
 
         <h1 className="text-2xl font-black text-center text-white leading-tight">

@@ -3,9 +3,9 @@
 export const ELEMENTS = ["Fire", "Water", "Grass"];
 
 export const IMAGES = {
-  Fire: "https://placehold.co/100x100/red/white?text=Fire",
-  Water: "https://placehold.co/100x100/blue/white?text=Water",
-  Grass: "https://placehold.co/100x100/green/white?text=Grass",
+  Fire: "🔥",
+  Water: "💧",
+  Grass: "🌿",
 };
 
 const FUSION_MONSTERS = [
@@ -91,7 +91,7 @@ export const generateDeck = (count = 20) => {
       bonusAtt: 0, defense: 0
     };
   });
-  
+
 
   const deck = [...monsters, ...magics, ...bosses].sort(() => Math.random() - 0.5);
   return deck;

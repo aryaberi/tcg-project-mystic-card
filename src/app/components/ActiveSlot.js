@@ -10,7 +10,7 @@ export default function ActiveSlot({ card, label, onHover }) {
       
       {card ? (
          <div className="w-full h-full p-2 bg-slate-800 rounded flex flex-col items-center animate-pulse-once">
-            <div className="text-4xl my-2">{card.type === 'MAGIC' ? card.image : (card.element === 'Fire' ? '🔥' : card.element === 'Water' ? '💧' : '🌿')}</div>
+            <div className="text-4xl my-2">{ card.image }</div>
             <div className="font-bold text-white text-center text-sm">{card.name}</div>
             
             <div className="mt-auto w-full">
