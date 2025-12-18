@@ -294,7 +294,7 @@ export default function TCGGame() {
                 <div
                   key={i}
                   className={`w-4 h-4 rounded-full ${
-                    i < gameState.comKO
+                    i < gameState.playerKO
                       ? "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)]"
                       : "bg-red-900/50"
                   }`}
@@ -398,7 +398,7 @@ export default function TCGGame() {
                 <div
                   key={i}
                   className={`w-4 h-4 rounded-full ${
-                    i < gameState.playerKO
+                    i < gameState.comKO
                       ? "bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.8)]"
                       : "bg-blue-900/50"
                   }`}

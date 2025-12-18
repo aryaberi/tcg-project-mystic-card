@@ -298,7 +298,7 @@ export default function useTCGGame() {
             addLog(`COM ${comActive.name} KO! (+1 Point)`);
             setComActive(null);
             setComKO(prev => {
-                const s = prev + 1;
+                const s = comActive.type === "FUSION" ? prev + 2 : prev + 1;
                 if (s >= 5) { setWinner("PLAYER"); audioManager.playSFX("win"); audioManager.stopBGM(); }
                 return s;
             });
@@ -432,7 +432,7 @@ export default function useTCGGame() {
                  if (predictedNewHp <= 0) {
                      setPlayerActive(null);
                      setPlayerKO(prev => {
-                         const s = prev + 1;
+                         const s = playerActive.type === "FUSION" ? prev + 2 : prev + 1;
                          if (s >= 5) { setWinner("COM"); audioManager.stopBGM(); }
                          return s;
                      });
