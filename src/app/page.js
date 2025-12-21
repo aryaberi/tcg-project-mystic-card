@@ -5,7 +5,30 @@ import Card from "../app/components/Card"; // Import UI
 import ActiveSlot from "../app/components/ActiveSlot"; // Import UI
 import BattleEffect from "../app/components/BattleEffect";
 import GameLogPanel from "../app/components/GameLogPanel";
+import GraveyardModal from "../app/components/GraveyardModal";
+import DeckSlot from "./components/DeckSlot";
+import { motion, LayoutGroup } from "framer-motion";
 
+const GraveyardSlot = ({ count, onClick, label, isCom }) => (
+  <div
+    onClick={onClick}
+    className={`w-24 h-32 bg-slate-900/80 border-2 border-slate-700 rounded-lg flex flex-col items-center justify-center relative cursor-pointer group hover:border-gray-400 transition ${
+      isCom ? "rotate-180" : ""
+    }`}
+  >
+    {/* Visual Tumpukan Kartu jika ada isi */}
+    {count > 0 && (
+      <>
+        <div className="absolute top-1 left-1 w-full h-full bg-slate-800 border border-slate-600 rounded-lg -z-10 rotate-3"></div>
+        <div className="absolute top-2 left-2 w-full h-full bg-slate-800 border border-slate-600 rounded-lg -z-20 rotate-6"></div>
+      </>
+    )}
+
+    <span className="text-2xl group-hover:scale-125 transition">⚰️</span>
+    <span className="text-[10px] font-bold text-gray-500 mt-1">{label} GY</span>
+    <span className="text-xl font-bold text-white">{count}</span>
+  </div>
+);
 const CardPreview = ({ card }) => {
   if (!card)
     return (
@@ -38,9 +61,7 @@ const CardPreview = ({ card }) => {
           {isMagic ? "SPELL CARD" : `${card.element.toUpperCase()} MONSTER`}
         </div>
 
-        <div className="text-8xl mb-4 drop-shadow-lg">
-          {card.image}
-        </div>
+        <div className="text-8xl mb-4 drop-shadow-lg">{card.image}</div>
 
         <h1 className="text-2xl font-black text-center text-white leading-tight">
           {card.name}
@@ -101,33 +122,6 @@ const CardPreview = ({ card }) => {
   );
 };
 
-// --- Komponen Visual Deck (Internal) ---
-const DeckSlot = ({ count, label, isCom }) => (
-  <div
-    className={`w-24 h-32 bg-slate-800/80 border-2 border-slate-600 rounded-lg flex flex-col items-center justify-center relative shadow-xl ${
-      isCom ? "transform rotate-180" : ""
-    }`}
-  >
-    <div className="absolute top-[-4px] left-[2px] w-full h-full bg-slate-700/60 border border-slate-600 rounded-lg -z-10"></div>
-    <div className="absolute top-[-8px] left-[4px] w-full h-full bg-slate-700/40 border border-slate-600 rounded-lg -z-20"></div>
-    <span
-      className={`text-gray-400 text-xs font-bold mb-1 ${
-        isCom ? "transform rotate-180" : ""
-      }`}
-    >
-      {label} DECK
-    </span>
-    <span
-      className={`text-3xl font-bold text-white ${
-        isCom ? "transform rotate-180" : ""
-      }`}
-    >
-      {count}
-    </span>
-    <div className="w-10 h-1 bg-gray-500 mt-2 rounded-full"></div>
-  </div>
-);
-
 // --- Komponen Placeholder Slot Kosong ---
 const EmptyBenchSlot = () => (
   <div className="w-24 h-32 bg-black/20 border-2 border-dashed border-slate-600/50 rounded-lg flex items-center justify-center">
@@ -141,6 +135,47 @@ export default function TCGGame() {
   const [hasStarted, setHasStarted] = useState(false);
   const [inspectedCard, setInspectedCard] = useState(null);
   const [showLogs, setShowLogs] = useState(true);
+  const [boardScale, setBoardScale] = useState(1);
+  // State untuk Modal Graveyard
+  const [showGraveyard, setShowGraveyard] = useState(false);
+  const [viewingGraveyardOf, setViewingGraveyardOf] = useState("PLAYER"); // "PLAYER" atau "COM"
+
+  // Helper buka modal
+  const openGraveyard = (who) => {
+    setViewingGraveyardOf(who);
+    setShowGraveyard(true);
+  };
+
+  useEffect(() => {
+    const handleResize = () => {
+      // 1. Tentukan ukuran "Ideal" Papan Permainan kita
+      // Anggap saja kita desain papan ini biar cantik di ukuran 1200x900 piksel
+      const BASE_WIDTH = 1200;
+      const BASE_HEIGHT = 900;
+
+      // 2. Hitung ruang yang tersedia di layar user
+      // Kurangi 320px untuk sidebar kiri (jika ada), dan sedikit padding (40px)
+      const availableWidth =
+        window.innerWidth - (window.innerWidth >= 1280 ? 340 : 20);
+      const availableHeight = window.innerHeight - 40; // Kurangi padding atas/bawah
+
+      // 3. Hitung persentase Zoom yang dibutuhkan
+      const scaleX = availableWidth / BASE_WIDTH;
+      const scaleY = availableHeight / BASE_HEIGHT;
+
+      // Pilih yang paling kecil agar muat di kedua sisi (Fit to Screen)
+      // Math.min(..., 1) artinya jangan pernah zoom in lebih dari 100% (biar gak pecah)
+      const newScale = Math.min(scaleX, scaleY, 1);
+
+      setBoardScale(newScale);
+    };
+
+    // Jalankan saat pertama load & saat window di-resize
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   // Fungsi untuk memulai game via tombol (Solusi Audio)
   const handleStartGame = () => {
     setHasStarted(true);
@@ -207,6 +242,8 @@ export default function TCGGame() {
     for (let i = 0; i < 5; i++) {
       const isSacrifice =
         !isCom && gameState.fusionSacrifices.some((s) => s.id === cards[i]?.id);
+      const isFusionDisabled =
+        !isCom && gameState.selectedFusionCard && cards[i]?.isReady === false;
       if (cards[i]) {
         slots.push(
           <div
@@ -223,11 +260,12 @@ export default function TCGGame() {
                 (gameState.selectedMagicCard !== null ||
                   gameState.selectedFusionCard !== null)
               }
+              isDisabled={isFusionDisabled}
               // Prop Baru: Apakah kartu ini terpilih jadi tumbal?
               isSacrificeSelected={isSacrifice}
               // Label aksi
               actionLabel={
-                !isCom
+                !isCom && !isFusionDisabled
                   ? gameState.selectedFusionCard
                     ? isSacrifice
                       ? "CANCEL"
@@ -249,231 +287,264 @@ export default function TCGGame() {
     return slots;
   };
 
+  // --- TAMPILAN 3: GAMEPLAY UTAMA (SCALED LAYOUT) ---
   return (
-    <div className="min-h-screen bg-slate-950 text-gray-100 flex flex-row overflow-hidden font-sans bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-fixed">
-      <div className="w-80 h-screen shrink-0 relative z-30">
+    // Container Luar: Full Screen & Tidak Boleh Scroll (Overflow Hidden)
+    <div className="h-screen w-screen bg-slate-950 text-gray-100 flex overflow-hidden font-sans bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-fixed">
+      {/* 1. SIDEBAR KIRI (PREVIEW) - Tetap Full Height & Tidak Ikut di-Scale */}
+      <div className="w-80 shrink-0 relative z-40 hidden xl:block border-r border-slate-800 bg-slate-900 h-full">
         <CardPreview card={inspectedCard} />
       </div>
 
-      {/* --- KANAN: GAME BOARD (Sisa Layar) --- */}
-      <div className="flex-1 flex flex-col relative h-screen">
-        <BattleEffect
-          active={gameState.isAttacking}
-          attacker={gameState.attackerName}
-        />
-        <div className="absolute top-4 right-4 z-50">
-          <button
-            className="bg-slate-800 p-2 rounded-full text-xs text-gray-400 hover:text-white"
-            onClick={() => {
-              // Logic mute sederhana (optional)
-              alert(
-                "Fitur mute bisa ditambahkan dengan memodifikasi SoundManager :)"
-              );
-            }}
-          >
-            🔊 Music On/Off
-          </button>
-        </div>
-        {!showLogs && (
-          <div className="absolute top-4 right-45 z-50">
-          <button
-            className="bg-slate-800 p-2 rounded-full text-xs text-gray-400 hover:text-white"
-            onClick={() => setShowLogs(true)}
-          >
-            📜 LOGS
-          </button>
-        </div>
-        )}
-        {/* === ZONE COM (ATAS) === */}
-        <div className="flex-1 p-4 flex flex-col items-center justify-start relative border-b border-slate-800/80 bg-gradient-to-b from-slate-900/90 to-slate-900/50 backdrop-blur-sm">
-          {/* Score COM */}
-          <div className="absolute top-4 left-6 flex items-center bg-red-950/80 border border-red-800 px-4 py-2 rounded-full shadow-lg">
-            <span className="text-red-400 font-bold mr-2">COM SCORE</span>
-            <div className="flex gap-1">
-              {[...Array(5)].map((_, i) => (
+      {/* 2. AREA TENGAH (WRAPPER FLEX) */}
+      {/* Area ini tugasnya menengahkan papan permainan */}
+      <div className="flex-1 flex items-center justify-center relative overflow-hidden bg-black/20">
+        {/* === THE SCALABLE BOARD === */}
+        {/* Ini adalah papan "virtual" yang ukurannya dipaksa TETAP (Fixed) 
+            tapi di-zoom in/out menggunakan style transform: scale() 
+        */}
+        <LayoutGroup>
+        <div
+          style={{
+            width: "1200px", // Lebar Tetap
+            height: "900px", // Tinggi Tetap
+            transform: `scale(${boardScale})`, // Magic terjadi di sini
+          }}
+          className="origin-center transition-transform duration-200 ease-out flex flex-col relative bg-slate-900/40 rounded-3xl border border-slate-700/50 shadow-2xl overflow-hidden ring-1 ring-white/10"
+        >
+          <BattleEffect
+            active={gameState.isAttacking}
+            attacker={gameState.attackerName}
+          />
+
+          {/* Tombol Audio & Logs */}
+          <div className="absolute top-4 right-4 z-50 flex gap-2">
+            <button className="bg-slate-800/80 p-2 rounded-full text-xs hover:text-white backdrop-blur">
+              🔊
+            </button>
+            {!showLogs && (
+              <button
+                className="bg-slate-800/80 p-2 rounded-full text-xs hover:text-white backdrop-blur"
+                onClick={() => setShowLogs(true)}
+              >
+                📜
+              </button>
+            )}
+          </div>
+
+          {/* === ZONE COM (ATAS) === */}
+          <div className="flex-1 p-4 flex flex-col items-center justify-start relative border-b border-slate-700/50">
+            {/* Score COM */}
+            <div className="absolute top-6 left-6 flex items-center bg-red-950/80 border border-red-800 px-3 py-1 rounded-full shadow-lg z-10">
+              <span className="text-red-400 font-bold mr-2 text-xs">COM</span>
+              <div className="flex gap-1">
+                {[...Array(6)].map((_, i) => (
+                  <div
+                    key={i}
+                    className={`w-3 h-3 rounded-full ${
+                      i < gameState.playerKO ? "bg-red-500" : "bg-red-900/50"
+                    }`}
+                  ></div>
+                ))}
+              </div>
+            </div>
+            {/* Hand COM */}
+            <div className="absolute -top-12 hover:-top-2 transition-all duration-300 flex gap-1 p-2 bg-black/60 rounded-b-xl z-20">
+              {com.hand.map((_, i) => (
                 <div
                   key={i}
-                  className={`w-4 h-4 rounded-full ${
-                    i < gameState.playerKO
-                      ? "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)]"
-                      : "bg-red-900/50"
-                  }`}
-                ></div>
+                  className="w-12 h-20 bg-gradient-to-br from-slate-700 to-slate-800 border border-slate-600 rounded shadow-lg"
+                />
               ))}
             </div>
-          </div>
-
-          {/* COM Hand (Kartu Terbalik) */}
-          <div className="absolute top-[-60px] hover:top-[-10px] transition-all duration-300 flex gap-1 p-2 bg-black/40 rounded-b-xl backdrop-blur-md z-20">
-            {com.hand.map((_, i) => (
-              <div
-                key={i}
-                className="w-16 h-24 bg-gradient-to-br from-slate-700 to-slate-800 border-2 border-slate-600 rounded shadow-lg"
-              />
-            ))}
-          </div>
-
-          {/* --- GRID LAYOUT COM --- */}
-          <div className="grid grid-cols-5 gap-4 mt-16 items-end">
-            {/* Baris Belakang (Bench) */}
-            {renderBench(com.bench, true)}
-            {/* Baris Depan (Active & Deck) */}
-            <div className="col-span-5 flex justify-center gap-12 mb-4">
-              {/* Deck COM */}
-              <DeckSlot count={com.deck.length} label="COM" isCom={true} />
-              {/* Active COM */}
-              <div className="transform rotate-180">
-                <ActiveSlot
-                  card={com.active}
-                  label="COM"
-                  onHover={setInspectedCard}
-                />
-              </div>
-              {/* Slot Kosong (Graveyard/Extra) - Opsional */}
-              <div className="w-24 h-32 bg-black/10 border-2 border-dashed border-slate-700/30 rounded-lg"></div>
-            </div>
-          </div>
-        </div>
-
-        {/* === ZONE INFO (TENGAH) === */}
-        <div className="h-20 bg-black/60 flex items-center justify-between px-10 border-y border-slate-700/50 backdrop-blur-md z-10 shadow-[0_0_30px_rgba(0,0,0,1)] relative">
-          {/* Status Turn */}
-          <div className="flex flex-col items-start">
-            <span className="text-xs text-slate-400 tracking-widest mb-1">
-              GAME STATUS
-            </span>
-            <span
-              className={`text-2xl font-black tracking-wider ${
-                gameState.turn === "PLAYER"
-                  ? "text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.8)]"
-                  : "text-red-400 animate-pulse"
-              }`}
-            >
-              {gameState.turn === "PLAYER" ? "YOUR TURN" : "COM THINKING..."}
-              {gameState.selectedFusionCard && (
-                <span className="text-yellow-400 font-bold text-xs animate-pulse bg-black/50 px-2 rounded mt-1 border border-yellow-500">
-                  {getFusionRequirementText()}
-                </span>
-              )}
-            </span>
-          </div>
-
-          {/* Tombol Aksi Tengah */}
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
-            {gameState.turn === "PLAYER" && player.active && com.active ? (
-              <button
-                onClick={actions.attack}
-                className="group relative bg-gradient-to-r from-red-600 to-orange-600 text-white font-black py-4 px-12 rounded-full shadow-[0_0_20px_rgba(220,38,38,0.5)] hover:shadow-[0_0_30px_rgba(220,38,38,0.8)] hover:scale-110 transition-all duration-200 overflow-hidden"
-              >
-                <span className="relative z-10 flex items-center gap-2 text-lg">
-                  ⚔️ <span className="tracking-wider">ATTACK!</span>
-                </span>
-                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-              </button>
-            ) : gameState.turn === "PLAYER" ? (
-              <button
-                onClick={actions.endTurn}
-                className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-3 px-8 rounded-full border border-slate-500 shadow-lg hover:shadow-xl transition-all"
-              >
-                END TURN
-              </button>
-            ) : null}
-          </div>
-
-          {/* Log Box */}
-          <div className="w-72 h-16 bg-black/50 rounded p-2 text-[10px] font-mono text-green-400/80 overflow-hidden flex flex-col-reverse shadow-inner border border-white/5">
-            {gameState.logs.map((l, i) => (
-              <div key={i} className="truncate leading-tight">{`> ${l}`}</div>
-            ))}
-          </div>
-        </div>
-
-        {/* === ZONE PLAYER (BAWAH) === */}
-        <div className="flex-1 p-4 flex flex-col items-center justify-end relative border-t border-slate-800/80 bg-gradient-to-t from-slate-950/90 to-slate-900/50 backdrop-blur-sm">
-          {/* Score Player */}
-          <div className="absolute bottom-4 right-6 flex items-center bg-blue-950/80 border border-blue-800 px-4 py-2 rounded-full shadow-lg">
-            <span className="text-blue-400 font-bold mr-2">PLAYER SCORE</span>
-            <div className="flex gap-1">
-              {[...Array(5)].map((_, i) => (
-                <div
-                  key={i}
-                  className={`w-4 h-4 rounded-full ${
-                    i < gameState.comKO
-                      ? "bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.8)]"
-                      : "bg-blue-900/50"
-                  }`}
-                ></div>
-              ))}
-            </div>
-          </div>
-
-          {/* --- GRID LAYOUT PLAYER --- */}
-          <div className="grid grid-cols-5 gap-4 mb-8 items-start">
-            {/* Baris Depan (Active & Deck) */}
-            <div className="col-span-5 flex justify-center gap-12 mt-4">
-              {/* Slot Kosong (Graveyard/Extra) */}
-              <div className="w-24 h-32 bg-black/10 border-2 border-dashed border-slate-700/30 rounded-lg"></div>
-              {/* Active Player */}
-              <div
-                onClick={actions.handleActiveClick}
-                className={`transition ${
-                  gameState.selectedMagicCard && player.active
-                    ? "cursor-pointer ring-4 ring-purple-500 rounded-lg animate-pulse shadow-[0_0_20px_rgba(168,85,247,0.6)]"
-                    : ""
-                }`}
-              >
-                <ActiveSlot
-                  card={player.active}
-                  label="PLAYER"
-                  onHover={setInspectedCard}
-                />
-              </div>
-              <DeckSlot count={player.deck.length} label="PLAYER" />
-            </div>
-            {/* Baris Belakang (Bench) */}
-            {renderBench(player.bench)}
-          </div>
-
-          {/* Player Hand */}
-          <div className="absolute -bottom-30 hover:bottom-[-10px] transition-all duration-300 flex justify-center w-full z-20 py-4">
-            <div className="flex gap-2 px-4 py-3 bg-black/60 rounded-t-2xl backdrop-blur-md border-t border-slate-700/50 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
-              {player.hand.length === 0 && (
-                <span className="text-slate-500 text-sm font-bold px-4 py-2">
-                  Hand Empty
-                </span>
-              )}
-              {player.hand.map((c) => (
-                <div
-                  key={c.id}
-                  className="hover:-translate-y-12 hover:scale-110 transition-all duration-300 origin-bottom cursor-grab active:cursor-grabbing"
-                >
-                  <Card
-                    data={c}
-                    onClick={actions.handleHandClick}
+            {/* Board COM */}
+            <div className="grid grid-cols-5 gap-3 mt-12 items-end">
+              {renderBench(com.bench, true)}
+              <div className="col-span-5 flex justify-center gap-8 mb-4">
+                <DeckSlot count={com.deck.length} label="COM" isCom={true} />
+                <div className="transform rotate-180">
+                  <ActiveSlot
+                    card={com.active}
+                    label="COM"
                     onHover={setInspectedCard}
-                    // Highlight jika ini kartu fusion yang sedang aktif
-                    isSelected={
-                      gameState.selectedMagicCard?.id === c.id ||
-                      gameState.selectedFusionCard?.id === c.id
-                    }
-                    actionLabel={
-                      c.type === "MAGIC"
-                        ? "USE"
-                        : c.type === "FUSION"
-                        ? "SUMMON"
-                        : "PLAY"
-                    }
                   />
                 </div>
-              ))}
+                <div className="transform rotate-180">
+                  <GraveyardSlot
+                    count={com.graveyard.length}
+                    label="COM"
+                    isCom={true}
+                    onClick={() => openGraveyard("COM")}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* === ZONE INFO (TENGAH) === */}
+          <div className="h-20 bg-black/60 flex items-center justify-center gap-12 px-8 border-y border-slate-600/50 backdrop-blur-md z-20 relative shrink-0">
+            <div className="flex flex-col items-center min-w-[150px]">
+              <span className="text-[10px] text-gray-400 tracking-widest font-bold">
+                STATUS
+              </span>
+              {gameState.selectedFusionCard ? (
+                <span className="text-yellow-400 font-bold text-sm animate-pulse bg-yellow-900/30 px-3 py-1 rounded border border-yellow-500/50 mt-1">
+                  {getFusionRequirementText()}
+                </span>
+              ) : (
+                <span
+                  className={`text-2xl font-black tracking-wider ${
+                    gameState.turn === "PLAYER"
+                      ? "text-blue-400 drop-shadow-lg"
+                      : "text-red-400"
+                  }`}
+                >
+                  {gameState.turn === "PLAYER" ? "YOUR TURN" : "THINKING..."}
+                </span>
+              )}
+            </div>
+            <div>
+              {gameState.turn === "PLAYER" && player.active && com.active ? (
+                <button
+                  onClick={actions.attack}
+                  className="bg-gradient-to-r from-red-600 to-orange-600 text-white font-black py-3 px-10 rounded-full shadow-lg hover:scale-110 transition text-lg border-2 border-red-400/20"
+                >
+                  ⚔️ ATTACK
+                </button>
+              ) : gameState.turn === "PLAYER" ? (
+                <button
+                  onClick={actions.endTurn}
+                  className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-8 rounded-full border border-slate-500 shadow-lg"
+                >
+                  END TURN
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          {/* === ZONE PLAYER (BAWAH) === */}
+          <div className="flex-1 p-4 flex flex-col items-center justify-end relative">
+            {/* Score Player */}
+            <div className="fixed bottom-6 right-6 flex items-center bg-blue-950/80 border border-blue-800 px-3 py-1 rounded-full shadow-lg z-0">
+              <span className="text-blue-400 font-bold mr-2 text-xs">YOU</span>
+              <div className="flex gap-1">
+                {[...Array(6)].map((_, i) => (
+                  <div
+                    key={i}
+                    className={`w-3 h-3 rounded-full ${
+                      i < gameState.comKO
+                        ? "bg-blue-500 shadow-blue"
+                        : "bg-blue-900/50"
+                    }`}
+                  ></div>
+                ))}
+              </div>
+            </div>
+
+            {/* Grid Player */}
+            <div className="grid grid-cols-5 gap-3 mb-6 items-start relative z-10">
+              <div className="col-span-5 flex justify-center gap-8 mt-4 max-w-100">
+                <GraveyardSlot
+                  count={player.graveyard.length}
+                  label="PLAYER"
+                  onClick={() => openGraveyard("PLAYER")}
+                />
+                <div
+                  onClick={actions.handleActiveClick}
+                  className={`transition ${
+                    gameState.selectedMagicCard && player.active
+                      ? "cursor-pointer ring-4 ring-purple-500 rounded-lg animate-pulse"
+                      : ""
+                  }`}
+                >
+                  <ActiveSlot
+                    card={player.active}
+                    label="PLAYER"
+                    onHover={setInspectedCard}
+                  />
+                </div>
+                {player.deck.map((card, index) => (
+                  <div
+                    key={card.id}
+                    style={{
+                      position: "absolute",
+                      top: 20, // Efek tumpukan (sedikit geser ke bawah)
+                      right: 80, // Efek tumpukan (sedikit geser ke kanan)
+                      zIndex: index, // Kartu teratas harus paling atas layer-nya
+                    }}
+                  >
+                    {/* INI KUNCINYA: CardBack punya layoutId yang sama dengan CardFront */}
+                    <DeckSlot
+                      count={player.deck.length}
+                      label="PLAYER"
+                      card={card}
+                    />
+                  </div>
+                ))}
+              </div>
+              {renderBench(player.bench)}
+            </div>
+
+            {/* === PLAYER HAND (Dalam Container Fixed) === */}
+            {/* Tidak perlu mt-auto karena container ini sudah fixed height, kita posisikan manual agar pas */}
+            <div className="w-full relative z-50 -mb-2">
+              <div className="flex justify-center items-end gap-2 px-4 h-28 overflow-visible pb-4">
+                {player.hand.length === 0 && (
+                  <span className="text-slate-500 text-xs font-bold mb-10 bg-black/50 px-3 py-1 rounded">
+                    Hand Empty
+                  </span>
+                )}
+                {player.hand.map((c) => (
+                  <div
+                    key={c.id}
+                    className="relative transition-all duration-300 ease-out scale-100 translate-y-6 hover:-translate-y-20 hover:scale-125 hover:z-[100] origin-bottom cursor-pointer"
+                  >
+                    <Card
+                      data={c}
+                      onClick={actions.handleHandClick}
+                      onHover={setInspectedCard}
+                      isSelected={
+                        gameState.selectedMagicCard?.id === c.id ||
+                        gameState.selectedFusionCard?.id === c.id
+                      }
+                      actionLabel={
+                        c.type === "MAGIC"
+                          ? "USE"
+                          : c.type === "INSTANT"
+                          ? "CAST" // Label Baru
+                          : c.type === "FUSION"
+                          ? "SUMMON"
+                          : "PLAY"
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+              {/* Gradient Hand */}
+              <div className="absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-black via-slate-900/90 to-transparent pointer-events-none -z-10 rounded-b-3xl"></div>
             </div>
           </div>
         </div>
+        </LayoutGroup>
+        {/* End of SCALABLE BOARD */}
       </div>
-      <GameLogPanel 
-        logs={gameState.logs} 
-        isOpen={showLogs} 
-        onClose={() => setShowLogs(false)} 
+
+      {/* 3. SIDEBAR KANAN (LOGS) */}
+      <GameLogPanel
+        logs={gameState.logs}
+        isOpen={showLogs}
+        onClose={() => setShowLogs(false)}
+      />
+      <GraveyardModal
+        isOpen={showGraveyard}
+        onClose={() => setShowGraveyard(false)}
+        cards={
+          viewingGraveyardOf === "PLAYER" ? player.graveyard : com.graveyard
+        }
+        title={
+          viewingGraveyardOf === "PLAYER" ? "YOUR GRAVEYARD" : "ENEMY GRAVEYARD"
+        }
+        onHover={setInspectedCard} // Sambungkan ke Preview Sidebar
       />
     </div>
   );
