@@ -3,11 +3,7 @@ import { motion } from "framer-motion";
 
 export default function DeckSlot({ count, label, isCom, card = [] }) {
   return (
-    <motion.div
-      key={card?.id}
-      layoutId={card?.id}
-      layout
-      transition={{ type: "spring", stiffness: 350, damping: 25 }}
+    <div
       className={`w-24 h-32 bg-slate-800/80 border-2 border-slate-600 rounded-lg flex flex-col items-center justify-center relative shadow-xl ${
         isCom ? "transform rotate-180" : ""
       }`}
@@ -29,6 +25,6 @@ export default function DeckSlot({ count, label, isCom, card = [] }) {
         {count}
       </span>
       <div className="w-10 h-1 bg-gray-500 mt-2 rounded-full"></div>
-    </motion.div>
+    </div>
   );
 }
